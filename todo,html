@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>오늘 뭐하니?</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style>
+    :root {
+      --main-color: #bfa2f6;
+      --sub-color: #ede7fa;
+      --highlight: #a585f5;
+      --accent: #916be0;
+      --border-radius: 16px;
+      --shadow: 0 4px 18px rgba(180,152,255,0.15);
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', 'Pretendard', 'Apple SD Gothic Neo', sans-serif;
+      background: var(--sub-color);
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: var(--main-color);
+      color: #fff;
+      padding: 2rem 0 1rem 0;
+      border-bottom-left-radius: var(--border-radius);
+      border-bottom-right-radius: var(--border-radius);
+      text-align: center;
+      font-size: 2rem;
+      font-weight: bold;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 800px;
+      margin: 1rem auto 0 auto;
+      padding: 0 1rem;
+    }
+    .date {
+      font-size: 1.1rem;
+      color: #8d72c6;
+      font-weight: 600;
+    }
+    .pdf-btn {
+      background: var(--highlight);
+      color: #fff;
+      border: none;
+      border-radius: 50px;
+      padding: 0.6em 1.4em;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: background 0.2s;
+      box-shadow: var(--shadow);
+    }
+    .pdf-btn:hover {
+      background: var(--accent);
+    }
+    .main-container {
+      max-width: 800px;
+      margin: 2rem auto 0 auto;
+      background: #fff;
+      border-radius: var(--border-radius);
+      padding: 2rem 1.5rem 2rem 1.5rem;
+      box-shadow: var(--shadow);
+      position: relative;
+    }
+    .add-btn {
+      background: var(--highlight);
+      color: #fff;
+      border: none;
+      border-radius: 50%;
+      width: 52px;
+      height: 52px;
+      font-size: 2.3rem;
+      cursor: pointer;
+      box-shadow: var(--shadow);
+      position: fixed;
+      bottom: 36px;
+      right: 36px;
+      transition: background 0.2s;
+      z-index: 20;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    .add-btn:hover {
+      background: var(--accent);
+    }
+    table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0 0.5rem;
+      margin-top: 1.5rem;
+    }
+    th, td {
+      background: var(--sub-color);
+      border-radius: 10px;
+      padding: 0.8rem;
+      text-align: left;
+    }
+    th {
+      color: #7547a2;
+      border-bottom: 2px solid #ded0f7;
+      font-weight: bold;
+      font-size: 1.1rem;
+      background: transparent;
+    }
+    td.title {
+      font-weight: bold;
+      color: var(--accent);
+      cursor: pointer;
+      transition: text-decoration 0.15s;
+      max-width: 180px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    td.title:hover {
+      text-decoration: underline;
+    }
+    td.content {
+      max-width: 260px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #555;
+    }
+    td.action {
+      text-align: center;
+    }
+    .del-btn {
+      background: #fff;
+      border: 1px solid var(--accent);
+      border-radius: 50%;
+      width: 34px;
+      height: 34px;
+      font-size: 1.3rem;
+      color: var(--accent);
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+    .del-btn:hover {
+      background: var(--accent);
+      color: #fff;
+    }
+    /* 팝업 */
+    .popup {
+      display: none;
+      position: fixed;
+      top: 50%; left: 50%;
+      transform: translate(-50%,-50%);
+      background: #fff;
+      border-radius: var(--border-radius);
+      box-shadow: 0 10px 48px rgba(125,90,205,0.19);
+      max-width: 94vw;
+      width: 420px;
+      padding: 2rem 1.3rem 1.8rem 1.3rem;
+      z-index: 100;
+      animation: popin 0.2s;
+    }
+    @keyframes popin { from {transform:translate(-50%,-46%); opacity:.5} to {transform:translate(-50%,-50%); opacity:1} }
+    .popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 1.18rem;
+      font-weight: bold;
+      margin-bottom: 0.6rem;
+      color: var(--accent);
+    }
+    .popup-close {
+      cursor: pointer;
+      font-size: 1.7rem;
+      line-height: 1;
+      color: #bbb;
+      border: none;
+      background: transparent;
+      margin-left: 0.3em;
+      transition: color .18s;
+    }
+    .popup-close:hover { color: var(--accent); }
+    .popup-body input, .popup-body textarea {
+      width: 100%;
+      padding: 0.7em;
+      margin-bottom: 0.9rem;
+      border-radius: 7px;
+      border: 1px solid #ccb9fa;
+      background: #faf9ff;
+      outline: none;
+      font-size: 1rem;
+      font-family: inherit;
+      resize: none;
+    }
+    .popup-body textarea { min-height: 80px; max-height: 240px; }
+    .popup-body .markdown-tip { font-size: 0.9em; color: #8e76e9; margin: -0.6rem 0 0.7rem 0;}
+    .popup-footer {
+      display: flex;
+      gap: 0.7em;
+      justify-content: flex-end;
+    }
+    .popup .act-btn {
+      background: var(--highlight);
+      border: none;
+      color: #fff;
+      border-radius: 50px;
+      font-size: 1.08rem;
+      padding: 0.55em 1.2em;
+      cursor: pointer;
+      transition: background 0.18s;
+      font-weight: 500;
+    }
+    .popup .act-btn:hover { background: var(--accent);}
+    /* 뷰모드 */
+    .popup-view-title {
+      font-size: 1.2rem;
+      font-weight: bold;
+      margin-bottom: 0.7em;
+      color: var(--accent);
+      word-break: break-word;
+    }
+    .popup-view-content {
+      background: #f4eff9;
+      border-radius: 10px;
+      padding: 1em;
+      color: #333;
+      margin-bottom: 1em;
+      min-height: 60px;
+    }
+    @media (max-width: 600px) {
+      .main-container { padding: 1em 0.5em; }
+      .toolbar { flex-direction: column; align-items: stretch; gap: 0.4em; }
+      .add-btn { width: 44px; height: 44px; font-size: 1.5rem; bottom: 18px; right: 16px; }
+      .popup { width: 95vw; min-width: unset; padding: 1.6em 0.7em 1.5em 0.7em;}
+    }
+  </style>
+</head>
+<body>
+
+<header>오늘 뭐하니?</header>
+<div class="toolbar">
+  <span class="date" id="today-date"></span>
+  <button class="pdf-btn" onclick="saveAsPDF()">PDF 다운로드</button>
+</div>
+<div class="main-container">
+  <table id="todo-table">
+    <thead>
+      <tr>
+        <th style="width:30%;">제목</th>
+        <th style="width:55%;">내용</th>
+        <th style="width:15%">삭제</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+<!-- "+" floating 버튼 -->
+<button class="add-btn" id="add-todo-btn" onclick="openEditPopup(-1)">＋</button>
+
+<!-- 팝업(입력/수정/보기) -->
+<div class="popup" id="popup">
+  <div class="popup-header">
+    <span id="popup-title">할일 추가</span>
+    <button class="popup-close" onclick="closePopup()">×</button>
+  </div>
+  <div class="popup-body" id="popup-body">
+    <!-- 동적으로 내용 채워짐 -->
+  </div>
+  <div class="popup-footer" id="popup-footer"></div>
+</div>
+
+<script>
+  // 날짜 표시
+  document.getElementById('today-date').innerText = new Date().toLocaleDateString('ko-KR', {
+    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+  });
+
+  let todos = [];
+  let editingIndex = -1;
+
+  function getShort(text, limit) {
+    return text.length > limit ? text.slice(0, limit) + '...' : text;
+  }
+
+  function renderTodos() {
+    const tbody = document.querySelector('#todo-table tbody');
+    tbody.innerHTML = '';
+    todos.forEach((todo, idx) => {
+      const tr = document.createElement('tr');
+      // 제목
+      const tdTitle = document.createElement('td');
+      tdTitle.textContent = getShort(todo.title, 10);
+      tdTitle.title = todo.title;
+      tdTitle.className = 'title';
+      tdTitle.onclick = () => openViewPopup(idx);
+
+      // 내용(마크다운 파싱 안됨)
+      const tdContent = document.createElement('td');
+      tdContent.className = 'content';
+      tdContent.textContent = getShort(todo.content.replace(/[#*_>\-\[\]!`]/g,""), 12);
+
+      // 삭제버튼
+      const tdDel = document.createElement('td');
+      tdDel.className = 'action';
+      const btn = document.createElement('button');
+      btn.textContent = '-';
+      btn.className = 'del-btn';
+      btn.onclick = () => { deleteTodo(idx); };
+      tdDel.appendChild(btn);
+
+      tr.appendChild(tdTitle);
+      tr.appendChild(tdContent);
+      tr.appendChild(tdDel);
+      tbody.appendChild(tr);
+    });
+  }
+
+  function openEditPopup(idx) {
+    editingIndex = idx;
+    document.getElementById('popup-title').textContent = idx === -1 ? '할일 추가' : '할일 수정';
+    document.getElementById('popup-body').innerHTML = `
+      <input type="text" id="todo-title" placeholder="제목" maxlength="50" value="${(idx > -1 ? escapeHtml(todos[idx].title) : '')}"/>
+      <textarea id="todo-content" placeholder="마크다운 형식 지원">${(idx > -1 ? escapeHtml(todos[idx].content) : '')}</textarea>
+      <div class="markdown-tip">내용은 <b>마크다운 형식</b> 지원</div>
+    `;
+    document.getElementById('popup-footer').innerHTML = `
+      <button class="act-btn" onclick="saveTodo()">${idx === -1 ? '추가' : '저장'}</button>
+    `;
+    showPopup();
+    setTimeout(()=>document.getElementById('todo-title').focus(),80);
+  }
+
+  function openViewPopup(idx) {
+    editingIndex = idx;
+    document.getElementById('popup-title').textContent = '할일 상세';
+    document.getElementById('popup-body').innerHTML = `
+      <div class="popup-view-title">${escapeHtml(todos[idx].title)}</div>
+      <div class="popup-view-content">${marked.parse(todos[idx].content)}</div>
+    `;
+    document.getElementById('popup-footer').innerHTML = `
+      <button class="act-btn" onclick="openEditPopup(${idx})">수정</button>
+    `;
+    showPopup();
+  }
+
+  function closePopup() {
+    document.getElementById('popup').style.display = 'none';
+  }
+  function showPopup() {
+    document.getElementById('popup').style.display = 'block';
+  }
+
+  function saveTodo() {
+    const title = document.getElementById('todo-title').value.trim();
+    const content = document.getElementById('todo-content').value.trim();
+    if(!title) { alert("제목을 입력하세요!"); document.getElementById('todo-title').focus(); return; }
+    if(editingIndex === -1) {
+      todos.push({title, content});
+    } else {
+      todos[editingIndex] = {title, content};
+    }
+    renderTodos();
+    closePopup();
+  }
+
+  function deleteTodo(idx) {
+    todos.splice(idx,1);
+    renderTodos();
+    closePopup();
+  }
+
+  function saveAsPDF() {
+    const element = document.createElement('div');
+    element.innerHTML = `<h1 style="color:#865dd8;">오늘 뭐하니?</h1>
+    <h3 style="color:#6d46ab;">${document.getElementById('today-date').innerText}</h3>`
+    + todos.map(todo =>
+        `<div style="margin-bottom:1.4em;">
+              <b style="color:#916be0;font-size:1.16em">${escapeHtml(todo.title)}</b>
+              <div style="margin-top:0.2em;">${marked.parse(todo.content)}</div>
+          </div>`
+    ).join("<hr style='border:none;border-top:1px dashed #d1bdf7'>");
+
+    html2pdf(element, {
+      margin: 0.75,
+      filename: '오늘_뭐하니.pdf',
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2 },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    });
+  }
+
+  function escapeHtml(str) {
+    return (str||'').replace(/[&<>'"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]});
+  }
+
+  renderTodos();
+</script>
+
+</body>
+</html>
